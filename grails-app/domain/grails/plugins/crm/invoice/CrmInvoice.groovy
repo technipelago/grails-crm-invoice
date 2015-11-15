@@ -55,6 +55,8 @@ class CrmInvoice {
     CrmEmbeddedAddress invoice
     CrmEmbeddedAddress delivery
 
+    String currency
+
     Float totalAmount = 0f
     Float totalVat = 0f
     Float payedAmount = 0f
@@ -79,6 +81,7 @@ class CrmInvoice {
         customerRef(maxSize: 80, nullable: true)
         customerTel(maxSize: 20, nullable: true)
         customerEmail(maxSize: 80, nullable: true, email: true)
+        currency(maxSize: 4, nullable: true)
         totalAmount(min: -999999f, max: 999999f, scale: 2)
         totalVat(min: -999999f, max: 999999f, scale: 2)
         payedAmount(min: -999999f, max: 999999f, scale: 2)

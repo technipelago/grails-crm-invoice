@@ -1,0 +1,122 @@
+= GR8 CRM - Invoice Management Plugin
+Göran Ehrsson <goran@technipelago.se>
+:description: Official documentation for the GR8 CRM Invoice Management Plugin
+:keywords: groovy, grails, crm, gr8crm, documentation
+:toc:
+:numbered:
+:icons: font
+:imagesdir: ./images
+:source-highlighter: prettify
+:homepage: http://gr8crm.github.io
+:gr8crm: GR8 CRM
+:gr8source: https://github.com/technipelago/grails-crm-invoice
+:license: This plugin is licensed with http://www.apache.org/licenses/LICENSE-2.0.html[Apache License version 2.0]
+
+== Introduction
+
+{gr8crm} is a set of http://www.grails.org/[Grails Web Application Framework]
+plugins that makes it easy to develop web applications with CRM functionality.
+
+You can find more information about {gr8crm} on the main documentation site {homepage}.
+
+=== Customer Relationship Management
+
+Customer relationship management (CRM) is a system for managing a company’s interactions with current and future customers.
+It involves using technology to organize, automate and synchronize sales, marketing, customer service, and technical support.
+http://en.wikipedia.org/wiki/Customer_relationship_management[Wikipedia]
+
+The {gr8crm} "Ecosystem" currently contains over 40 Grails plugins. For a complete list of plugins see {homepage}.
+
+Each {gr8crm} plugin defines a http://martinfowler.com/bliki/BoundedContext.html[Bounded Context]
+that focus on one specific domain, for example *contact*, *project* or *document*.
+
+== Invoice Management Plugin
+
+This plugin provide storage and services for managing invoices in {gr8crm} applications.
+
+Note that this plugin does not contain any user interface components. This plugin contains domain classes and services only.
+The plugin http://gr8crm.github.io/plugins/crm-invoice-ui/[crm-invoice-ui] provides a Twitter Bootstrap based user interface for managing invoices.
+
+TIP: `crm-invoice-ui` depends on `crm-invoice` so you only need to include
+`crm-invoice-ui` in your BuildConfig.groovy if you want end-user invoice
+management features.
+
+== Domain Model
+
+image::invoice-domain.png[Invoice Domain Model]
+
+=== CrmInvoice
+
+An invoice have an invoice head with customer details and zero-or-many invoice items that specify the products included by the invoice.
+The invoice head is stored in `CrmInvoice` and each invoice item is stored in a `CrmInvoiceItem` instance.
+The association `CrmInvoice.items` references all items for an invoice.
+
+.CrmInvoice
+[options="header",cols="25,25,50"]
+|===
+| Property          | Type               | Description
+| number            | String             | Invoice number
+| invoiceDate       | java.sql.Date      | Invoice date
+| deliveryDate      | java.sql.Date      | Delivery date (expected or actual)
+| dueDate           | java.sql.Date      | Payment due date
+| paymentDate       | java.sql.Date      | Actutal payment date
+| invoiceStatus     | CrmInvoiceStatus   | Current invoice status
+| customerTel       | String             | Customer telephone
+| customerEmail     | String             | Customer email
+| invoice           | CrmEmbeddedAddress | Invoice address
+| delivery          | CrmEmbeddedAddress | Delivery address
+| currency          | String             | Currency code
+| totalAmount       | Double             | Total invoice amount
+| totalVat          | Double             | Total VAT amount
+|===
+
+=== CrmInvoiceItem
+
+Each invoice item specifies product and price information.
+
+.CrmInvoiceItem
+[options="header",cols="20,20,60"]
+|===
+| Property          | Type            | Description
+| orderIndex        | Integer         | Line number
+| productId         | String          | A number that uniquely identifies the product
+| productName       | String          | Name of product
+| comment           | String          | Optional comments
+| quantity          | Double          | Quantity of products invoiced
+| unit              | String          | Unit of quantity
+| price             | Double          | Price for one item excluding VAT
+| discount          | Double          | Discount (in percent of price if value < 1 and in real currency if value >= 1)
+| vat               | Double          | Value Added Tax (in percent)
+|===
+
+== CrmInvoiceService
+
+Like most other {gr8crm} plugins this plugin have a main service with methods for creating, searching and updating invoices.
+
+=== Create invoice status
+
+`CrmInvoiceStatus createInvoiceStatus(Map params, boolean save = false)`
+
+Invoice status is mandatory on an invoice and different invoice statuses can be created with `createInvoiceStatus()`.
+
+=== Create a new invoice
+
+TODO
+
+== Changes
+
+2.0.0:: First public release
+
+== License
+
+{license}
+
+== Source Code
+
+The source code for this plugin is available at {gr8source}
+
+== Contributing
+
+Please report {gr8source}/issues[issues or suggestions].
+
+Want to improve the plugin: Fork the {gr8source}[repository] and send a pull request.

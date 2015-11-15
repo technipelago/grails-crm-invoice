@@ -3,7 +3,7 @@ package grails.plugins.crm.invoice
 /**
  * Tests for CrmOrderService.
  */
-class CrmInvoiceServiceSpec extends grails.plugin.spock.IntegrationSpec {
+class CrmInvoiceServiceSpec extends grails.test.spock.IntegrationSpec {
 
     def crmInvoiceService
 

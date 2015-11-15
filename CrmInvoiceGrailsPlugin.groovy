@@ -1,10 +1,10 @@
 class CrmInvoiceGrailsPlugin {
     // Dependency group
-    def groupId = "grails.crm"
+    def groupId = ""
     // the plugin version
-    def version = "1.3.0-SNAPSHOT"
+    def version = "2.4.0-SNAPSHOT"
     // the version or versions of Grails the plugin is designed for
-    def grailsVersion = "2.0 > *"
+    def grailsVersion = "2.4 > *"
     // the other plugins this plugin depends on
     def dependsOn = [:]
     // resources that are excluded from plugin packaging
