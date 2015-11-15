@@ -23,7 +23,7 @@ package grails.plugins.crm.invoice
  */
 class CrmInvoiceItem {
     Integer orderIndex
-    String productNumber
+    String productId
     String productName
     String unit
     Float quantity
@@ -35,13 +35,13 @@ class CrmInvoiceItem {
 
     static constraints = {
         orderIndex()
-        productNumber(maxSize: 40, blank: false)
+        productId(maxSize: 40, blank: false)
         productName(maxSize: 255, blank: false)
         unit(maxSize: 40, nullable: false, blank: false)
         quantity(nullable: false, min: -999999f, max: 999999f, scale: 2)
         backorder(nullable: true, min: -999999f, max: 999999f, scale: 2)
         price(nullable: false, min: -999999f, max: 999999f, scale: 2)
-        vat(min: 0f, max: 1f, scale: 2)
+        vat(nullable: false, min: 0f, max: 1f, scale: 2)
     }
 
     static transients = ['totalPrice', 'totalVat']
@@ -55,7 +55,7 @@ class CrmInvoiceItem {
     }
 
     String toString() {
-        "$quantity $unit $productNumber"
+        "$quantity $unit $productId"
     }
 
 }

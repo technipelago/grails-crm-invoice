@@ -20,6 +20,7 @@ import grails.events.Listener
 import grails.plugins.crm.core.DateUtils
 import grails.plugins.crm.core.SearchUtils
 import grails.plugins.crm.core.TenantUtils
+import org.apache.commons.lang.StringUtils
 import org.codehaus.groovy.grails.web.metaclass.BindDynamicMethod
 
 /**
@@ -79,15 +80,15 @@ class CrmInvoiceService {
                     ilike('name', SearchUtils.wildcard(query.customer))
                 }
             }
-            if (params.fromDate && params.toDate) {
-                def d1 = DateUtils.parseSqlDate(params.fromDate)
-                def d2 = DateUtils.parseSqlDate(params.toDate)
+            if (query.fromDate && query.toDate) {
+                def d1 = DateUtils.parseSqlDate(query.fromDate)
+                def d2 = DateUtils.parseSqlDate(query.toDate)
                 between('invoiceDate', d1, d2)
-            } else if (params.fromDate) {
-                def d1 = DateUtils.parseSqlDate(params.fromDate)
+            } else if (query.fromDate) {
+                def d1 = DateUtils.parseSqlDate(query.fromDate)
                 ge('invoiceDate', d1)
-            } else if (params.toDate) {
-                def d2 = DateUtils.parseSqlDate(params.toDate)
+            } else if (query.toDate) {
+                def d2 = DateUtils.parseSqlDate(query.toDate)
                 le('invoiceDate', d2)
             }
         }
@@ -100,10 +101,6 @@ class CrmInvoiceService {
         new BindDynamicMethod().invoke(m, 'bind', args.toArray())
         m.tenantId = tenant
 
-        if (m.invoice == null) {
-
-        }
-
         if (save) {
             m.save()
         } else {
@@ -114,12 +111,12 @@ class CrmInvoiceService {
     }
 
     CrmInvoiceItem addInvoiceItem(CrmInvoice invoice, Map params, boolean save = false) {
-        def m = new CrmInvoiceItem(invoice:invoice)
+        def m = new CrmInvoiceItem(invoice: invoice)
         def args = [m, params]
         new BindDynamicMethod().invoke(m, 'bind', args.toArray())
         if (m.validate()) {
             invoice.addToItems(m)
-            if (save && invoice.validate()) {
+            if (invoice.validate() && save) {
                 invoice.save()
             }
         }
@@ -128,5 +125,61 @@ class CrmInvoiceService {
 
     void cancelInvoice(CrmInvoice invoice) {
         throw new UnsupportedOperationException("CrmInvoiceService#cancelInvoice() not implemented")
+    }
+
+    CrmInvoiceStatus getInvoiceStatus(String param) {
+        CrmInvoiceStatus.findByParamAndTenantId(param, TenantUtils.tenant, [cache: true])
+    }
+
+    CrmInvoiceStatus createInvoiceStatus(Map params, boolean save = false) {
+        if (!params.param) {
+            params.param = StringUtils.abbreviate(params.name?.toLowerCase(), 20)
+        }
+        def tenant = TenantUtils.tenant
+        def m = CrmInvoiceStatus.findByParamAndTenantId(params.param, tenant)
+        if (!m) {
+            m = new CrmInvoiceStatus()
+            def args = [m, params, [include: CrmInvoiceStatus.BIND_WHITELIST]]
+            new BindDynamicMethod().invoke(m, 'bind', args.toArray())
+            m.tenantId = tenant
+            if (params.enabled == null) {
+                m.enabled = true
+            }
+            if (save) {
+                m.save()
+            } else {
+                m.validate()
+                m.clearErrors()
+            }
+        }
+        return m
+    }
+
+    CrmPaymentTerm getPaymentTerm(String param) {
+        CrmPaymentTerm.findByParamAndTenantId(param, TenantUtils.tenant, [cache: true])
+    }
+
+    CrmPaymentTerm createPaymentTerm(Map params, boolean save = false) {
+        if (!params.param) {
+            params.param = StringUtils.abbreviate(params.name?.toLowerCase(), 20)
+        }
+        def tenant = TenantUtils.tenant
+        def m = CrmPaymentTerm.findByParamAndTenantId(params.param, tenant)
+        if (!m) {
+            m = new CrmPaymentTerm()
+            def args = [m, params, [include: CrmPaymentTerm.BIND_WHITELIST]]
+            new BindDynamicMethod().invoke(m, 'bind', args.toArray())
+            m.tenantId = tenant
+            if (params.enabled == null) {
+                m.enabled = true
+            }
+            if (save) {
+                m.save()
+            } else {
+                m.validate()
+                m.clearErrors()
+            }
+        }
+        return m
     }
 }

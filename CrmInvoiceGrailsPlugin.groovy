@@ -2,7 +2,7 @@ class CrmInvoiceGrailsPlugin {
     // Dependency group
     def groupId = "grails.crm"
     // the plugin version
-    def version = "1.0-SNAPSHOT"
+    def version = "1.3.0-SNAPSHOT"
     // the version or versions of Grails the plugin is designed for
     def grailsVersion = "2.0 > *"
     // the other plugins this plugin depends on
@@ -14,11 +14,11 @@ class CrmInvoiceGrailsPlugin {
             "grails-app/views/error.gsp"
     ]
 
-    def title = "Grails CRM Invoice Plugin"
+    def title = "GR8 CRM Invoice Services"
     def author = "Goran Ehrsson"
     def authorEmail = "goran@technipelago.se"
     def description = '''\
-Simple invoice administration for Grails CRM.
+Simple invoice administration for GR8 CRM applications.
 '''
 
     // URL to the plugin's documentation

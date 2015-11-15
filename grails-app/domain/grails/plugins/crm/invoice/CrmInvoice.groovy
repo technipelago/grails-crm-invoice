@@ -16,9 +16,9 @@
 
 package grails.plugins.crm.invoice
 
-import grails.plugins.crm.contact.CrmEmbeddedAddress
-import grails.plugins.crm.contact.CrmContact
+import grails.plugins.crm.core.CrmEmbeddedAddress
 import grails.plugins.crm.core.AuditEntity
+import grails.plugins.crm.core.Pair
 import grails.plugins.crm.core.TenantEntity
 import grails.plugins.sequence.SequenceEntity
 
@@ -30,12 +30,12 @@ import grails.plugins.sequence.SequenceEntity
 @SequenceEntity
 class CrmInvoice {
 
+    def crmCoreService
+
     String number
     String description
 
     String orderNumber
-    java.sql.Date orderDate
-    java.sql.Date deliveryDate
     java.sql.Date invoiceDate
     java.sql.Date dueDate
     java.sql.Date paymentDate
@@ -45,26 +45,21 @@ class CrmInvoice {
     String reference3
     String reference4
 
-    //CrmInvoiceType invoiceType
-    //CrmInvoiceStatus invoiceStatus
-    //CrmPaymentTerm paymentTerm
-    //CrmDeliveryTerm deliveryTerm
-    //CrmDeliveryType deliveryType
+    CrmInvoiceStatus invoiceStatus
+    CrmPaymentTerm paymentTerm
 
-    CrmContact customer
+    String customerRef
     String customerTel
     String customerEmail
 
     CrmEmbeddedAddress invoice
     CrmEmbeddedAddress delivery
 
-    Float invoiceAmount = 0f
-    Float vatAmount = 0f
+    Float totalAmount = 0f
+    Float totalVat = 0f
     Float payedAmount = 0f
     String paymentType
     String paymentId
-
-    SortedSet items
 
     static embedded = ['invoice', 'delivery']
 
@@ -74,8 +69,6 @@ class CrmInvoice {
         number(maxSize: 20, nullable: true, unique: 'tenantId')
         description(maxSize: 2000, nullable: true, widget: 'textarea')
         orderNumber(maxSize: 20, nullable: true)
-        orderDate(nullable: true)
-        deliveryDate(nullable: true)
         invoiceDate(nullable: true)
         dueDate(nullable: true)
         paymentDate(nullable: true)
@@ -83,11 +76,11 @@ class CrmInvoice {
         reference2(maxSize: 80, nullable: true)
         reference3(maxSize: 80, nullable: true)
         reference4(maxSize: 80, nullable: true)
-        customer()
+        customerRef(maxSize: 80, nullable: true)
         customerTel(maxSize: 20, nullable: true)
         customerEmail(maxSize: 80, nullable: true, email: true)
-        invoiceAmount(min: -999999f, max: 999999f, scale: 2)
-        vatAmount(min: -999999f, max: 999999f, scale: 2)
+        totalAmount(min: -999999f, max: 999999f, scale: 2)
+        totalVat(min: -999999f, max: 999999f, scale: 2)
         payedAmount(min: -999999f, max: 999999f, scale: 2)
         paymentType(maxSize: 50, nullable: true)
         paymentId(maxSize: 100, nullable: true)
@@ -97,16 +90,33 @@ class CrmInvoice {
 
     static mapping = {
         sort 'number'
+        customerRef index: 'crm_invoice_customer_idx'
         items sort: 'orderIndex', 'asc'
     }
 
-    //static transients = ['']
+    static transients = ['customer']
+
+    static taggable = true
+    static attachmentable = true
+    static dynamicProperties = true
+
+    transient Object getCustomer() {
+        crmCoreService.getReference(customerRef)
+    }
+
+    transient void setCustomer(Object arg) {
+        customerRef = crmCoreService.getReferenceIdentifier(arg)
+    }
 
     def beforeValidate() {
         if (!number) {
             number = getNextSequenceNumber()
         }
-        invoiceAmount = calculateAmount()
+
+        def (tot, vat) = calculateAmount()
+        totalAmount = tot
+        totalVat = vat
+
         if (invoice == null && customer != null) {
             def customerAddress = customer.address
             if (customerAddress) {
@@ -115,16 +125,14 @@ class CrmInvoice {
         }
     }
 
-    static taggable = true
-    static attachmentable = true
-    static dynamicProperties = true
-
-    Float calculateAmount() {
-        float sum = 0
+    Pair<Float, Float> calculateAmount() {
+        Float sum = 0f
+        Float vat = 0f
         for (item in items) {
             sum += item.totalPrice
+            vat += item.totalVat
         }
-        return sum
+        return new Pair(sum, vat)
     }
 
     String toString() {

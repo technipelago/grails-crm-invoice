@@ -15,39 +15,37 @@
  */
 
 import grails.plugins.crm.invoice.CrmInvoice
+import grails.util.Environment
 
 class BootStrap {
 
     def crmInvoiceService
     def crmProductService
-    def crmContactService
     def crmTagService
 
     def init = { servletContext ->
 
         crmTagService.createTag(name: CrmInvoice.name, multiple: true)
 
-        def hardware = crmProductService.createProductGroup(name: "Hardware", true)
+        if (Environment.current == Environment.DEVELOPMENT) {
+            def hardware = crmProductService.createProductGroup(name: "Hardware", true)
 
-        def personal = crmProductService.createPriceList(name: "Personal", true)
+            def personal = crmProductService.createPriceList(name: "Personal", true)
 
-        def apple = crmContactService.createCompany(name: "Apple").save(failOnError: true)
+            def iPhone4s = crmProductService.createProduct(number: "iPhone4s", name: "iPhone 4S 16 GB Black Unlocked", group: hardware, suppliersNumber: "MD235KS/A", weight: 0.14)
+            iPhone4s.addToPrices(priceList: personal, unit: "pcs", fromAmount: 1, inPrice: 0, outPrice: 3068.8, vat: 0.25)
+            iPhone4s.save(failOnError: true)
 
-        def iPhone4s = crmProductService.createProduct(number: "iPhone4s", name: "iPhone 4S 16 GB Black Unlocked", group: hardware, supplier: apple, suppliersNumber: "MD235KS/A", weight: 0.14)
-        iPhone4s.addToPrices(priceList: personal, unit: "pcs", fromAmount: 1, inPrice: 0, outPrice: 3068.8, vat: 0.25)
-        iPhone4s.save(failOnError: true)
+            def s = crmInvoiceService.createInvoiceStatus(name: "Invoice", true)
+            def t = crmInvoiceService.createPaymentTerm(name: "Web Order", true)
 
-        def customer = crmContactService.createCompany(name: "ACME Inc.",
-                address: [address1: "Grails Street 211", postalCode: "21123", city: "Alice Springs"], telephone: "+1(234)56789", email: "info@acme.com").save(failOnError: true)
-        def contact = crmContactService.createPerson(parent: customer, firstName: "Joe", lastName: "Average", title: "Software Engineer",
-                email: "joe@acme.com").save(failOnError: true)
+            def invoice = crmInvoiceService.createInvoice(invoiceStatus: s, paymentTerm: t, customer: "ACME Inc.", customerTel: "+4685551234", customerEmail: "customer@acme.com")
+            crmInvoiceService.addInvoiceItem(invoice, [orderIndex: 1, productNumber: iPhone4s.number, productName: iPhone4s.name,
+                    unit: "item", quantity: 1, price: iPhone4s.getPrice(1,personal), vat: iPhone4s.getVat(personal)])
+            invoice.save(failOnError: true)
 
-        def invoice = crmInvoiceService.createInvoice(customer: customer, customerTel: contact.preferredPhone, customerEmail: contact.email)
-        crmInvoiceService.addInvoiceItem(invoice, [orderIndex: 1, productNumber: iPhone4s.number, productName: iPhone4s.name,
-                unit: "item", quantity: 1, price: iPhone4s.getPrice(personal), vat: iPhone4s.getVat(personal)])
-        invoice.save(failOnError: true)
-
-        println "Invoice #$invoice created for ${invoice.customer} at ${invoice.invoice}"
+            println "Invoice #$invoice created for ${invoice.customer} at ${invoice.invoice}"
+        }
     }
 
     def destroy = {
