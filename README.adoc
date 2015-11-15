@@ -1,0 +1,40 @@
+= GR8 CRM - Invoice Management Services
+Göran Ehrsson <goran@technipelago.se>
+:source-highlighter: prettify
+:homepage: http://gr8crm.github.io
+:license: This plugin is licensed with http://www.apache.org/licenses/LICENSE-2.0.html[Apache License version 2.0]
+
+CRM = http://en.wikipedia.org/wiki/Customer_relationship_management[Customer Relationship Management]
+
+GR8 CRM is a set of http://www.grails.org/[Grails Web Application Framework]
+plugins that makes it easy to develop web application with CRM functionality.
+With CRM we mean features like:
+
+- Contact Management
+- Task/Todo Lists
+- Project Management
+
+
+== Invoice Management for GR8 CRM
+This plugin provides the "headless" part of GR8 CRM invoice management (i.e domains and services).
+The companion plugin *crm-invoice-ui* provides user interfaces for invoice management.
+
+=== Examples
+
+[source,groovy]
+.CreateInvoice.groovy
+----
+def s = crmInvoiceService.createInvoiceStatus(name: "Created", true)
+def t = crmInvoiceService.createPaymentTerm(name: "14days", true)
+
+def invoice = crmInvoiceService.createInvoice(invoiceStatus: s, paymentTerm: t, customer: "ACME Inc.", customerTel: "+4685551234", customerEmail: "customer@acme.com")
+crmInvoiceService.addInvoiceItem(invoice, [orderIndex: 1, productNumber: "iPhone6s", productName: "iPhone 6s 64GB Space Grey",
+    unit: "item", quantity: 1, price: 699, vat: 0.2])
+invoice.save(failOnError: true)
+
+println "Invoice number #$invoice created for ${invoice.customer}"
+----
+
+=== Documentation
+
+Complete documentation for this plugin can be found at http://gr8crm.github.io/plugins/crm-invoice/[gr8crm.github.io]
