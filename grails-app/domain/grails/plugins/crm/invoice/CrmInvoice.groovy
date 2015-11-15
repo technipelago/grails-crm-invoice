@@ -16,11 +16,15 @@
 
 package grails.plugins.crm.invoice
 
+import grails.plugins.crm.core.CrmContactInformation
+import grails.plugins.crm.core.CrmCoreService
 import grails.plugins.crm.core.CrmEmbeddedAddress
 import grails.plugins.crm.core.AuditEntity
 import grails.plugins.crm.core.Pair
 import grails.plugins.crm.core.TenantEntity
 import grails.plugins.sequence.SequenceEntity
+import grails.util.Holders
+import groovy.transform.CompileStatic
 
 /**
  * Invoice domain class.
@@ -30,7 +34,24 @@ import grails.plugins.sequence.SequenceEntity
 @SequenceEntity
 class CrmInvoice {
 
-    def crmCoreService
+    public static final int PAYMENT_STATUS_UNKNOWN = 0
+    public static final int PAYMENT_STATUS_OPEN = 1
+    public static final int PAYMENT_STATUS_WAIT = 11
+    public static final int PAYMENT_STATUS_CASH = 12
+    public static final int PAYMENT_STATUS_PARTIAL = 31
+    public static final int PAYMENT_STATUS_FULL = 35
+
+    public static final int EVENT_RESET = 0
+    public static final int EVENT_CHANGED = 1
+    public static final int EVENT_PUBLISHED = 2
+
+    public static final List<String> BIND_WHITELIST = ['number', 'description', 'orderNumber', 'invoiceDate', 'dueDate', 'paymentDate',
+            'reference1', 'reference2', 'reference3', 'reference4',  'invoiceStatus', 'paymentTerm',
+            'customerNumber', 'customerRef', 'customerFirstName', 'customerLastName', 'customerCompany', 'customerTel', 'customerEmail',
+            'invoice', 'delivery', 'totalAmount', 'totalVat', 'currency'
+    ].asImmutable()
+
+    private def _crmCoreService
 
     String number
     String description
@@ -40,6 +61,7 @@ class CrmInvoice {
     java.sql.Date dueDate
     java.sql.Date paymentDate
 
+    String ref // entityName@id
     String reference1
     String reference2
     String reference3
@@ -48,7 +70,11 @@ class CrmInvoice {
     CrmInvoiceStatus invoiceStatus
     CrmPaymentTerm paymentTerm
 
+    String customerNumber
     String customerRef
+    String customerFirstName
+    String customerLastName
+    String customerCompany
     String customerTel
     String customerEmail
 
@@ -59,9 +85,13 @@ class CrmInvoice {
 
     Float totalAmount = 0f
     Float totalVat = 0f
-    Float payedAmount = 0f
+
+    int paymentStatus = PAYMENT_STATUS_UNKNOWN
     String paymentType
     String paymentId
+    Double payedAmount = 0
+
+    int event = EVENT_RESET
 
     static embedded = ['invoice', 'delivery']
 
@@ -74,19 +104,26 @@ class CrmInvoice {
         invoiceDate(nullable: true)
         dueDate(nullable: true)
         paymentDate(nullable: true)
+        ref(maxSize: 80, nullable: true)
         reference1(maxSize: 80, nullable: true)
         reference2(maxSize: 80, nullable: true)
         reference3(maxSize: 80, nullable: true)
         reference4(maxSize: 80, nullable: true)
+        customerNumber(maxSize: 20, nullable: true)
         customerRef(maxSize: 80, nullable: true)
+        customerFirstName(maxSize: 80, nullable: true)
+        customerLastName(maxSize: 80, nullable: true)
+        customerCompany(maxSize: 80, nullable: true)
         customerTel(maxSize: 20, nullable: true)
         customerEmail(maxSize: 80, nullable: true, email: true)
-        currency(maxSize: 4, nullable: true)
+        currency(maxSize: 4, blank: false)
         totalAmount(min: -999999f, max: 999999f, scale: 2)
         totalVat(min: -999999f, max: 999999f, scale: 2)
-        payedAmount(min: -999999f, max: 999999f, scale: 2)
-        paymentType(maxSize: 50, nullable: true)
-        paymentId(maxSize: 100, nullable: true)
+        paymentStatus(min: PAYMENT_STATUS_UNKNOWN, max: PAYMENT_STATUS_FULL)
+        paymentDate(nullable: true)
+        paymentType(maxSize: 40, nullable: true)
+        paymentId(maxSize: 80, nullable: true)
+        payedAmount(min: -999999d, max: 999999d, scale: 2)
         invoice(nullable: true)
         delivery(nullable: true)
     }
@@ -97,33 +134,149 @@ class CrmInvoice {
         items sort: 'orderIndex', 'asc'
     }
 
-    static transients = ['customer']
+    static transients = ['reference', 'customer', 'customerName', 'totalAmountVAT', 'dao', 'syncPending', 'syncPublished']
 
     static taggable = true
     static attachmentable = true
     static dynamicProperties = true
 
-    transient Object getCustomer() {
-        crmCoreService.getReference(customerRef)
+    // Lazy injection of service.
+    private CrmCoreService getCrmCoreService() {
+        if (_crmCoreService == null) {
+            _crmCoreService = this.getDomainClass().getGrailsApplication().getMainContext().getBean('crmCoreService')
+        }
+        _crmCoreService
     }
 
-    transient void setCustomer(Object arg) {
-        customerRef = crmCoreService.getReferenceIdentifier(arg)
+    @CompileStatic
+    void setReference(object) {
+        ref = object ? getCrmCoreService().getReferenceIdentifier(object) : null
+    }
+
+    @CompileStatic
+    transient Object getReference() {
+        ref ? getCrmCoreService().getReference(ref) : null
+    }
+
+    transient Double getTotalAmountVAT() {
+        def p = totalAmount ?: 0
+        def v = totalVat ?: 0
+        return p + v
+    }
+
+    transient CrmContactInformation getCustomer() {
+        getCrmCoreService().getReference(customerRef)
+    }
+
+    @CompileStatic
+    transient void setCustomer(CrmContactInformation arg) {
+        customerRef = getCrmCoreService().getReferenceIdentifier(arg)
+    }
+
+    @CompileStatic
+    transient void setCustomer(String arg) {
+        customerRef = arg
+    }
+
+    @CompileStatic
+    transient String getCustomerName() {
+        def s = new StringBuilder()
+        if (customerFirstName) {
+            s.append(customerFirstName)
+        }
+        if (customerLastName) {
+            if (s.length()) {
+                s.append(' ')
+            }
+            s.append(customerLastName)
+        }
+        if (s.length() == 0 && customerRef?.startsWith('crmContact@')) {
+            // TODO this is a hack, find a better impl.
+            def c = getCustomer()
+            if (c) {
+                s << c.toString()
+            }
+        }
+        s.toString()
+    }
+
+    transient Map<String, Object> getDao() {
+        def map = BIND_WHITELIST.inject([:]) { m, i ->
+            if (i != 'invoice' && i != 'delivery') {
+                def v = this."$i"
+                if (v != null) {
+                    m[i] = v
+                }
+            }
+            m
+        }
+        map.tenant = getTenantId()
+        map.id = id
+        map.customer = getCustomer()?.getDao()
+        map.customerName = getCustomerName()
+        if(invoice != null) {
+            map.invoice = invoice.getDao()
+        }
+        if (delivery != null) {
+            map.delivery = delivery.getDao()
+        }
+        map.totalAmountVAT = getTotalAmountVAT()
+
+        if(paymentDate || payedAmount) {
+            map.payedAmount = payedAmount
+            map.paymentDate = paymentDate
+            map.paymentType = paymentType
+            map.paymentId = paymentId
+        }
+
+        map.items = items?.collect { it.getDao() }
+
+        return map
+    }
+
+    transient boolean isSyncPending() {
+        event == EVENT_CHANGED
+    }
+
+    void setSyncPending() {
+        event = EVENT_CHANGED
+    }
+
+    transient boolean isSyncPublished() {
+        event == EVENT_PUBLISHED
+    }
+
+    void setSyncPublished() {
+        event = EVENT_PUBLISHED
+    }
+
+    void setNoSync() {
+        event = EVENT_RESET
     }
 
     def beforeValidate() {
         if (!number) {
             number = getNextSequenceNumber()
         }
+        if(! invoiceDate) {
+            invoiceDate = new java.sql.Date(System.currentTimeMillis())
+        }
+
+        if(! currency) {
+            currency = Holders.getConfig().crm.currency.default ?: 'EUR'
+        }
 
         def (tot, vat) = calculateAmount()
         totalAmount = tot
         totalVat = vat
 
-        if (invoice == null && customer != null) {
-            def customerAddress = customer.address
-            if (customerAddress) {
-                invoice = new CrmEmbeddedAddress(customerAddress)
+        if (invoice == null) {
+            def cust = getCustomer()
+            if(cust != null) {
+                def customerAddress = cust.address
+                if (customerAddress) {
+                    invoice = new CrmEmbeddedAddress(customerAddress)
+                }
             }
         }
     }
