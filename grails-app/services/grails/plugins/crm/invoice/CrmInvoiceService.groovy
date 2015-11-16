@@ -356,6 +356,31 @@ class CrmInvoiceService {
         return m
     }
 
+    CrmInvoice updateStatus(CrmInvoice crmInvoice, Object newStatus) {
+        CrmInvoiceStatus status
+        if(newStatus instanceof CrmInvoiceStatus) {
+           status = newStatus
+        } else {
+            status = getInvoiceStatus(newStatus.toString())
+        }
+
+        if(! status) {
+            throw new IllegalArgumentException("no such invoice status: $newStatus")
+        }
+
+        def oldStatus = crmInvoice.invoiceStatus.dao
+
+        crmInvoice.invoiceStatus = status
+
+        if(crmInvoice.save(flush: true)) {
+            def payload = crmInvoice.dao
+            payload.changes = [invoiceStatus: [before: oldStatus, after: crmInvoice.invoiceStatus.dao]]
+            event(for: 'crmInvoice', topic: 'updated', data: payload)
+        }
+
+        return crmInvoice
+    }
+
     @CompileStatic
     private String paramify(final String name, Integer maxSize = 20) {
         String param = name.toLowerCase().replace(' ', '-')
