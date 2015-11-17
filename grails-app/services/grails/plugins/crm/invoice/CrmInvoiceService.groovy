@@ -259,8 +259,14 @@ class CrmInvoiceService {
                     customerTel      : customer.getTelephone(),
                     customerEmail    : customer.getEmail()
             ]
-            println "Invoice customer: $customerParams"
             grailsWebDataBinder.bind(m, customerParams as SimpleMapDataBindingSource)
+        }
+
+        for(item in params.items) {
+            def row = addInvoiceItem(m, item, false)
+            if(row.hasErrors()) {
+                log.error("Validation error for invoice item", row.errors.allErrors.toString())
+            }
         }
 
         if (save) {
@@ -285,7 +291,7 @@ class CrmInvoiceService {
 
         if (m.validate()) {
             invoice.addToItems(m)
-            if (invoice.validate() && save) {
+            if (save && invoice.validate()) {
                 invoice.save(flush: true)
                 event(for: 'crmInvoice', topic: 'updated', data: m.dao)
             }
