@@ -17,15 +17,9 @@
 package grails.plugins.crm.invoice
 
 import grails.events.Listener
-import grails.plugins.crm.core.CrmContactInformation
-import grails.plugins.crm.core.DateUtils
-import grails.plugins.crm.core.PagedResultList
-import grails.plugins.crm.core.SearchUtils
-import grails.plugins.crm.core.TenantUtils
+import grails.plugins.crm.core.*
 import grails.plugins.selection.Selectable
 import groovy.transform.CompileStatic
-import org.apache.commons.lang.StringUtils
-import org.codehaus.groovy.grails.web.metaclass.BindDynamicMethod
 import org.grails.databinding.SimpleMapDataBindingSource
 
 /**
@@ -39,7 +33,6 @@ class CrmInvoiceService {
     def sequenceGeneratorService
 
     def crmCoreService
-    def crmSecurityService
     def crmTagService
 
     @Listener(namespace = "crmInvoice", topic = "enableFeature")
@@ -142,7 +135,7 @@ class CrmInvoiceService {
                 inList('id', tagged)
             }
             if (query.number) {
-                eq('number', query.number)
+                ilike('number', SearchUtils.wildcard(query.number))
             }
             if (query.customer) {
                 if (crmCoreService.isDomainClass(query.customer)
@@ -229,10 +222,10 @@ class CrmInvoiceService {
         def tenant = TenantUtils.tenant
         def m = new CrmInvoice(tenantId: tenant)
 
-        if(params.status && ! params.invoiceStatus) {
+        if (params.status && !params.invoiceStatus) {
             params.invoiceStatus = params.status
         }
-        if(! params.invoiceStatus) {
+        if (!params.invoiceStatus) {
             params.invoiceStatus = 'created'
         }
         if (params.invoiceStatus && !(params.invoiceStatus instanceof CrmInvoiceStatus)) {
@@ -251,7 +244,7 @@ class CrmInvoiceService {
 
         grailsWebDataBinder.bind(m, params as SimpleMapDataBindingSource, null, CrmInvoice.BIND_WHITELIST, null, null)
 
-        if(params.reference) {
+        if (params.reference) {
             m.setReference(params.reference)
         }
 
@@ -271,7 +264,7 @@ class CrmInvoiceService {
         }
 
         if (save) {
-            if(m.save(flush: true)) {
+            if (m.save(flush: true)) {
                 event(for: 'crmInvoice', topic: 'created', data: m.dao)
             }
         } else {
@@ -287,7 +280,7 @@ class CrmInvoiceService {
         grailsWebDataBinder.bind(m, params as SimpleMapDataBindingSource, null, CrmInvoiceItem.BIND_WHITELIST, null, null)
 
         if (m.orderIndex == null) {
-            m.orderIndex = (invoice.items ? invoice.items.collect{it.orderIndex}.max() : 0) + 1
+            m.orderIndex = (invoice.items ? invoice.items.collect { it.orderIndex }.max() : 0) + 1
         }
 
         if (m.validate()) {
@@ -356,15 +349,22 @@ class CrmInvoiceService {
         return m
     }
 
+    /**
+     * Update status of an invoice.
+     *
+     * @param crmInvoice the invoice instance to update
+     * @param newStatus new status as a CrmInvoiceStatus instance or a String matching the 'param' property of a CrmInvoiceStatus
+     * @return the updated invoice instance
+     */
     CrmInvoice updateStatus(CrmInvoice crmInvoice, Object newStatus) {
         CrmInvoiceStatus status
-        if(newStatus instanceof CrmInvoiceStatus) {
-           status = newStatus
+        if (newStatus instanceof CrmInvoiceStatus) {
+            status = newStatus
         } else {
             status = getInvoiceStatus(newStatus.toString())
         }
 
-        if(! status) {
+        if (!status) {
             throw new IllegalArgumentException("no such invoice status: $newStatus")
         }
 
@@ -372,13 +372,30 @@ class CrmInvoiceService {
 
         crmInvoice.invoiceStatus = status
 
-        if(crmInvoice.save(flush: true)) {
+        if (crmInvoice.save(flush: true)) {
             def payload = crmInvoice.dao
             payload.changes = [invoiceStatus: [before: oldStatus, after: crmInvoice.invoiceStatus.dao]]
             event(for: 'crmInvoice', topic: 'updated', data: payload)
         }
 
         return crmInvoice
+    }
+
+    /**
+     * Assign a new invoice number using the SequencegeneratorService.
+     *
+     * @param crmInvoice the invoice instance to assign number to
+     * @param group optional sequence number group/series
+     * @return the updated invoice instance
+     */
+    CrmInvoice assignNumber(CrmInvoice crmInvoice, String group = null) {
+        def old = crmInvoice.number
+        crmInvoice.number = sequenceGeneratorService.nextNumber(CrmInvoice, group, crmInvoice.tenantId)
+        if (crmInvoice.save(flush: true)) {
+            def payload = crmInvoice.dao
+            payload.changes = [number: [before: old, after: crmInvoice.number]]
+            event(for: 'crmInvoice', topic: 'updated', data: payload)
+        }
     }
 
     @CompileStatic
