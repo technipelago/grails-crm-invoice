@@ -275,7 +275,8 @@ class CrmInvoiceService {
 
         if (save) {
             if (m.save(flush: true)) {
-                event(for: 'crmInvoice', topic: 'created', data: m.dao)
+                String username = crmSecurityService.currentUser?.username
+                event(for: 'crmInvoice', topic: 'created', data: m.dao + [user: username])
             }
         } else {
             m.validate()
@@ -295,9 +296,12 @@ class CrmInvoiceService {
 
         if (m.validate()) {
             invoice.addToItems(m)
-            if (save && invoice.validate()) {
+            // invoice.validate() is crucial here, it updates totalAmount and totalVat on the invoice,
+            // even if we're not saving the instance.
+            if (invoice.validate() && save) {
                 invoice.save(flush: true)
-                event(for: 'crmInvoice', topic: 'updated', data: m.dao)
+                String username = crmSecurityService.currentUser?.username
+                event(for: 'crmInvoice', topic: 'updated', data: m.dao + [user: username])
             }
         }
         return m
@@ -577,6 +581,7 @@ class CrmInvoiceService {
         if (crmInvoice.save(flush: true)) {
             def payload = crmInvoice.dao
             payload.changes = [invoiceStatus: [before: oldStatus, after: crmInvoice.invoiceStatus.dao]]
+            payload.user = crmSecurityService.currentUser?.username
             event(for: 'crmInvoice', topic: 'updated', data: payload)
         }
 
@@ -596,6 +601,7 @@ class CrmInvoiceService {
         if (crmInvoice.save(flush: true)) {
             def payload = crmInvoice.dao
             payload.changes = [number: [before: old, after: crmInvoice.number]]
+            payload.user = crmSecurityService.currentUser?.username
             event(for: 'crmInvoice', topic: 'updated', data: payload)
         }
     }
