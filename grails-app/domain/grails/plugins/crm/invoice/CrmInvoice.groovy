@@ -46,7 +46,7 @@ class CrmInvoice {
     public static final int EVENT_PUBLISHED = 2
 
     public static final List<String> BIND_WHITELIST = ['number', 'description', 'orderNumber', 'invoiceDate', 'dueDate', 'paymentDate',
-            'reference1', 'reference2', 'reference3', 'reference4',  'invoiceStatus', 'paymentTerm',
+            'reference1', 'reference2', 'reference3', 'reference4',  'invoiceStatus', 'paymentTerm', 'paymentStatus', 'payedAmount',
             'customerNumber', 'customerRef', 'customerFirstName', 'customerLastName', 'customerCompany', 'customerTel', 'customerEmail',
             'invoice', 'delivery', 'totalAmount', 'totalVat', 'currency'
     ].asImmutable()
