@@ -117,6 +117,7 @@ println "Invoice number #$invoice created for ${invoice.customer}"
 
 == Changes
 
+2.4.1:: Payment properties are now included in the databinding white list
 2.4.0:: First public release
 
 == License
