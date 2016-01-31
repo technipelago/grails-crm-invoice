@@ -32,7 +32,7 @@ import groovy.transform.CompileStatic
 @TenantEntity
 @AuditEntity
 @SequenceEntity
-class CrmInvoice {
+class CrmInvoice implements Iterable<CrmInvoiceItem> {
 
     public static final int PAYMENT_STATUS_UNKNOWN = 0
     public static final int PAYMENT_STATUS_OPEN = 1
@@ -200,6 +200,11 @@ class CrmInvoice {
         s.toString()
     }
 
+    @CompileStatic
+    Iterator<CrmInvoiceItem> iterator() {
+        (items ?: Collections.EMPTY_SET).iterator()
+    }
+
     transient Map<String, Object> getDao() {
         def map = BIND_WHITELIST.inject([:]) { m, i ->
             if (i != 'invoice' && i != 'delivery') {
@@ -234,22 +239,27 @@ class CrmInvoice {
         return map
     }
 
+    @CompileStatic
     transient boolean isSyncPending() {
         event == EVENT_CHANGED
     }
 
+    @CompileStatic
     void setSyncPending() {
         event = EVENT_CHANGED
     }
 
+    @CompileStatic
     transient boolean isSyncPublished() {
         event == EVENT_PUBLISHED
     }
 
+    @CompileStatic
     void setSyncPublished() {
         event = EVENT_PUBLISHED
     }
 
+    @CompileStatic
     void setNoSync() {
         event = EVENT_RESET
     }
@@ -281,16 +291,20 @@ class CrmInvoice {
         }
     }
 
-    Pair<Float, Float> calculateAmount() {
-        Float sum = 0f
-        Float vat = 0f
-        for (item in items) {
-            sum += item.totalPrice
-            vat += item.totalVat
+    @CompileStatic
+    private Pair<Float, Float> calculateAmount() {
+        Double sum = 0d
+        Double vat = 0d
+        if(items) {
+            for (item in items) {
+                sum += item.totalPrice
+                vat += item.totalVat
+            }
         }
-        return new Pair(sum, vat)
+        return new Pair(sum.floatValue(), vat.floatValue())
     }
 
+    @CompileStatic
     String toString() {
         number.toString()
     }
