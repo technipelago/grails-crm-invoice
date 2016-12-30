@@ -545,7 +545,9 @@ class CrmInvoiceService {
                     if (item.validate()) {
                         crmInvoice.addToItems(item)
                     } else {
-                        crmInvoice.errors.addAllErrors(item.errors)
+                        for(error in item.errors) {
+                            crmInvoice.errors.reject(error.fieldError.toString())
+                        }
                     }
                 }
             } else {

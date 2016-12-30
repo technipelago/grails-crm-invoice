@@ -16,12 +16,7 @@
 
 package grails.plugins.crm.invoice
 
-import grails.plugins.crm.core.CrmContactInformation
-import grails.plugins.crm.core.CrmCoreService
-import grails.plugins.crm.core.CrmEmbeddedAddress
-import grails.plugins.crm.core.AuditEntity
-import grails.plugins.crm.core.Pair
-import grails.plugins.crm.core.TenantEntity
+import grails.plugins.crm.core.*
 import grails.plugins.sequence.SequenceEntity
 import grails.util.Holders
 import groovy.transform.CompileStatic
@@ -40,15 +35,21 @@ class CrmInvoice implements Iterable<CrmInvoiceItem> {
     public static final int PAYMENT_STATUS_CASH = 12
     public static final int PAYMENT_STATUS_PARTIAL = 31
     public static final int PAYMENT_STATUS_FULL = 35
-
+    public static final List<Integer> PAYMENT_STATUS_LIST = [PAYMENT_STATUS_UNKNOWN,
+                                                             PAYMENT_STATUS_OPEN,
+                                                             PAYMENT_STATUS_WAIT,
+                                                             PAYMENT_STATUS_CASH,
+                                                             PAYMENT_STATUS_PARTIAL,
+                                                             PAYMENT_STATUS_FULL]
     public static final int EVENT_RESET = 0
     public static final int EVENT_CHANGED = 1
     public static final int EVENT_PUBLISHED = 2
 
-    public static final List<String> BIND_WHITELIST = ['number', 'description', 'orderNumber', 'invoiceDate', 'dueDate', 'paymentDate',
-            'reference1', 'reference2', 'reference3', 'reference4',  'invoiceStatus', 'paymentTerm', 'paymentStatus', 'payedAmount',
-            'customerNumber', 'customerRef', 'customerFirstName', 'customerLastName', 'customerCompany', 'customerTel', 'customerEmail',
-            'invoice', 'delivery', 'totalAmount', 'totalVat', 'currency'
+    public static
+    final List<String> BIND_WHITELIST = ['number', 'description', 'orderNumber', 'invoiceDate', 'dueDate', 'paymentDate',
+                                         'reference1', 'reference2', 'reference3', 'reference4', 'invoiceStatus', 'paymentTerm', 'paymentStatus', 'payedAmount',
+                                         'customerNumber', 'customerRef', 'customerFirstName', 'customerLastName', 'customerCompany', 'customerTel', 'customerEmail',
+                                         'invoice', 'delivery', 'totalAmount', 'totalVat', 'currency'
     ].asImmutable()
 
     private def _crmCoreService
@@ -219,7 +220,7 @@ class CrmInvoice implements Iterable<CrmInvoiceItem> {
         map.id = id
         map.customer = getCustomer()?.getDao()
         map.customerName = getCustomerName()
-        if(invoice != null) {
+        if (invoice != null) {
             map.invoice = invoice.getDao()
         }
         if (delivery != null) {
@@ -227,7 +228,7 @@ class CrmInvoice implements Iterable<CrmInvoiceItem> {
         }
         map.totalAmountVAT = getTotalAmountVAT()
 
-        if(paymentDate || payedAmount) {
+        if (paymentDate || payedAmount) {
             map.payedAmount = payedAmount
             map.paymentDate = paymentDate
             map.paymentType = paymentType
@@ -268,11 +269,11 @@ class CrmInvoice implements Iterable<CrmInvoiceItem> {
         if (!number) {
             number = getNextSequenceNumber()
         }
-        if(! invoiceDate) {
+        if (!invoiceDate) {
             invoiceDate = new java.sql.Date(System.currentTimeMillis())
         }
 
-        if(! currency) {
+        if (!currency) {
             currency = Holders.getConfig().crm.currency.default ?: 'EUR'
         }
 
@@ -282,7 +283,7 @@ class CrmInvoice implements Iterable<CrmInvoiceItem> {
 
         if (invoice == null) {
             def cust = getCustomer()
-            if(cust != null) {
+            if (cust != null) {
                 def customerAddress = cust.address
                 if (customerAddress) {
                     invoice = new CrmEmbeddedAddress(customerAddress)
@@ -295,13 +296,34 @@ class CrmInvoice implements Iterable<CrmInvoiceItem> {
     private Pair<Float, Float> calculateAmount() {
         Double sum = 0d
         Double vat = 0d
-        if(items) {
+        if (items) {
             for (item in items) {
                 sum += item.totalPrice
                 vat += item.totalVat
             }
         }
         return new Pair(sum.floatValue(), vat.floatValue())
+    }
+
+    CrmInvoice copy(Boolean credit = false) {
+        def original = this
+        def invoiceAddress = original.invoice ? original.invoice.copy() : new CrmEmbeddedAddress()
+        def deliveryAddress = original.delivery ? original.delivery.copy() : new CrmEmbeddedAddress()
+        def crmInvoice = new CrmInvoice(ref: original.ref, invoice: invoiceAddress, delivery: deliveryAddress, invoiceDate: new java.sql.Date(System.currentTimeMillis()))
+        def properties = BIND_WHITELIST - ['number', 'dueDate', 'invoiceDate', 'paymentDate', 'invoiceStatus', 'paymentStatus', 'payedAmount']
+
+        for (prop in properties) {
+            crmInvoice."$prop" = original."$prop"
+        }
+
+        for(item in original.items) {
+            def newItem = item.copy(credit)
+            if(newItem.validate()) {
+                crmInvoice.addToItems(newItem)
+            }
+        }
+
+        return crmInvoice
     }
 
     @CompileStatic

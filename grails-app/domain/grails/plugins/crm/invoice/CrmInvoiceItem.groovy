@@ -96,5 +96,16 @@ class CrmInvoiceItem {
                 price: price, priceVAT: getPriceVAT(),
                 totalPrice: getTotalPrice(), totalPriceVAT: getTotalPriceVAT()]
     }
+
+    CrmInvoiceItem copy(Boolean credit = false) {
+        def item = new CrmInvoiceItem(invoice: this.invoice)
+        for(prop in BIND_WHITELIST) {
+            item."$prop" = this."$prop"
+        }
+        if(credit) {
+            item.price = -this.price
+        }
+        return item
+    }
 }
 
