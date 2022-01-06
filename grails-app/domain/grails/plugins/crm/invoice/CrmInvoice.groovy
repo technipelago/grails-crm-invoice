@@ -316,6 +316,10 @@ class CrmInvoice implements Iterable<CrmInvoiceItem> {
             crmInvoice."$prop" = original."$prop"
         }
 
+        if(credit) {
+            crmInvoice.description = "Avser kreditering av faktura ${original.number} ${original.invoiceDate?.format('yyyy-MM-dd')}"
+        }
+
         for(item in original.items) {
             def newItem = item.copy(credit)
             if(newItem.validate()) {
