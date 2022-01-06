@@ -40,11 +40,11 @@ grails.project.dependency.resolution = {
         test(":codenarc:0.24.1") { export = false }
         test(":code-coverage:2.0.3-3") { export = false }
 
-        compile ":crm-core:2.4.3"
-        compile ":crm-tags:2.4.2"
+        compile ":crm-core:2.4.5"
+        compile ":crm-tags:2.4.3"
 
-        compile ":sequence-generator:1.2"
-        compile ":selection:0.9.8"
+        compile ":sequence-generator:1.2.1"
+        compile ":selection:0.9.9"
     }
 }
 
